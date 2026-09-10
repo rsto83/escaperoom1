@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escape Room: El Enigma del Laboratorio Secreto</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for Web Audio Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Font Inter & Orbitron for Sci-Fi display -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            color: #f3f4f6;
+            user-select: none;
+        }
+        .font-digital {
+            font-family: 'Orbitron', monospace;
+        }
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+        .glow-red {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+        .glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+        }
+        .pulse-alarm {
+            animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-red {
+            0%, 100% { background-color: rgba(239, 68, 68, 0.05); }
+            50% { background-color: rgba(239, 68, 68, 0.25); }
+        }
+        .heart-shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-3 sm:p-6 overflow-x-hidden">
+
+    <!-- MAIN CONTAINER -->
+    <div class="w-full max-w-4xl flex flex-col flex-grow justify-between">
+        
+        <!-- HEADER / NAVIGATION HUD -->
+        <header id="game-header" class="hidden glass-panel rounded-2xl p-4 mb-4 shadow-xl border border-cyan-500/30">
+            <div class="flex flex-wrap justify-between items-center gap-3">
+                
+                <!-- Room Title & Level Indicator -->
+                <div class="flex items-center space-x-3">
+                    <div class="p-2 bg-cyan-950 text-cyan-400 rounded-lg border border-cyan-500/40">
+                        <i class="fa-solid fa-flask text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xs uppercase tracking-widest text-cyan-400 font-semibold">Laboratorio Secreto</h1>
+                        <p id="stage-indicator" class="text-sm sm:text-base font-bold text-white">Módulo 1: Decodificador</p>
+                    </div>
+                </div>
+
+                <!-- Timer Counter -->
+                <div class="flex items-center bg-gray-900/80 px-4 py-2 rounded-xl border border-gray-700">
+                    <i class="fa-solid fa-clock text-amber-400 mr-2 text-lg"></i>
+                    <span id="timer-display" class="font-digital text-xl sm:text-2xl text-amber-400 tracking-wider">30:00</span>
+                </div>
+
+                <!-- Lives (Hearts) -->
+                <div class="flex items-center space-x-2 bg-gray-900/80 px-4 py-2 rounded-xl border border-gray-700">
+                    <span class="text-xs uppercase tracking-wider text-gray-400 mr-1 hidden sm:inline">Vidas:</span>
+                    <div id="lives-container" class="flex space-x-1 text-red-500 text-xl">
+                        <i class="fa-solid fa-heart heart-1"></i>
+                        <i class="fa-solid fa-heart heart-2"></i>
+                        <i class="fa-solid fa-heart heart-3"></i>
+                    </div>
+                </div>
+
+                <!-- Tools & Sound Toggle -->
+                <div class="flex items-center space-x-2">
+                    <button id="btn-scratchpad" onclick="toggleScratchpad()" class="p-2.5 bg-gray-800 hover:bg-gray-700 text-cyan-300 rounded-xl transition border border-gray-600" title="Abrir Borrador / Pizarra para Operaciones">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span class="text-xs ml-1 hidden md:inline">Borrador</span>
+                    </button>
+                    <button id="btn-audio" onclick="toggleAudio()" class="p-2.5 bg-gray-800 hover:bg-gray-700 text-yellow-400 rounded-xl transition border border-gray-600" title="Sonido On/Off">
+                        <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Master Key Progress Bar -->
+            <div class="mt-4 pt-3 border-t border-gray-800 flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs text-gray-400">Código del Candado Obtenido:</span>
+                <div class="flex space-x-2">
+                    <div id="digit-box-1" class="w-8 h-10 sm:w-10 sm:h-12 bg-gray-900 border-2 border-gray-700 rounded-lg flex items-center justify-center font-digital text-lg sm:text-xl text-cyan-400 font-bold">?</div>
+                    <div id="digit-box-2" class="w-8 h-10 sm:w-10 sm:h-12 bg-gray-900 border-2 border-gray-700 rounded-lg flex items-center justify-center font-digital text-lg sm:text-xl text-cyan-400 font-bold">?</div>
+                    <div id="digit-box-3" class="w-8 h-10 sm:w-10 sm:h-12 bg-gray-900 border-2 border-gray-700 rounded-lg flex items-center justify-center font-digital text-lg sm:text-xl text-cyan-400 font-bold">?</div>
+                    <div id="digit-box-4" class="w-8 h-10 sm:w-10 sm:h-12 bg-gray-900 border-2 border-gray-700 rounded-lg flex items-center justify-center font-digital text-lg sm:text-xl text-cyan-400 font-bold">?</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- GAME SCREENS AREA -->
+        <main class="flex-grow flex flex-col justify-center my-auto">
+            
+            <!-- SCREEN 0: INTRO SCREEN -->
+            <section id="screen-intro" class="glass-panel rounded-3xl p-6 sm:p-10 text-center max-w-2xl mx-auto shadow-2xl border border-cyan-500/20">
+                <div class="w-20 h-20 bg-cyan-950 text-cyan-400 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl border-2 border-cyan-500/50 glow-cyan">
+                    <i class="fa-solid fa-user-ninja"></i>
+                </div>
+                
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2 font-digital tracking-wide">
+                    EL ENIGMA DEL LABORATORIO
+                </h2>
+                <p class="text-cyan-400 font-semibold mb-6 uppercase tracking-widest text-sm">Misión Escape Matemático</p>
+
+                <div class="bg-gray-900/90 rounded-2xl p-5 mb-8 text-left text-gray-300 space-y-3 text-sm sm:text-base border border-gray-800">
+                    <p class="flex items-start">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400 mr-3 mt-1"></i>
+                        <span><strong>¡Atención Agente!</strong> El Dr. Cero te ha bloqueado dentro del laboratorio de alta seguridad.</span>
+                    </p>
+                    <p class="flex items-start">
+                        <i class="fa-solid fa-key text-cyan-400 mr-3 mt-1"></i>
+                        <span>Debes resolver <strong>4 Módulos de División por Dos Cifras</strong> para conseguir los 4 dígitos que abren el candado final.</span>
+                    </p>
+                    <p class="flex items-start">
+                        <i class="fa-solid fa-heart text-red-500 mr-3 mt-1"></i>
+                        <span>Tienes <strong>3 Vidas (Energía)</strong>. Cada respuesta incorrecta te restará 1 vida.</span>
+                    </p>
+                    <p class="flex items-start">
+                        <i class="fa-solid fa-pencil text-emerald-400 mr-3 mt-1"></i>
+                        <span>Usa el botón <strong>"Borrador"</strong> arriba para hacer las divisiones en pantalla si no tienes papel.</span>
+                    </p>
+                </div>
+
+                <button onclick="startGame()" class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-lg rounded-2xl transition transform hover:scale-105 shadow-lg glow-cyan flex items-center justify-center mx-auto space-x-3">
+                    <i class="fa-solid fa-play"></i>
+                    <span>INICIAR ESCAPE (30 MIN)</span>
+                </button>
+            </section>
+
+            <!-- SCREEN 1: MODULE 1 -->
+            <section id="screen-mod1" class="hidden glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl border border-cyan-500/20">
+                <div class="mb-6">
+                    <span class="text-xs font-bold text-cyan-400 bg-cyan-950 px-3 py-1 rounded-full border border-cyan-800">DESAFÍO 1 DE 4</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white mt-2">El Decodificador de Cocientes</h2>
+                    <p class="text-gray-400 text-sm mt-1">Resuelve las divisiones exactas para descifrar la palabra secreta.</p>
+                </div>
+
+                <!-- Division Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 text-center">
+                        <p class="text-xs text-gray-400 mb-1">Operación 1</p>
+                        <p class="font-digital text-2xl text-cyan-300 font-bold mb-3">456 ÷ 12</p>
+                        <input type="number" id="m1-op1" placeholder="Cociente" class="w-full bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 text-center">
+                        <p class="text-xs text-gray-400 mb-1">Operación 2</p>
+                        <p class="font-digital text-2xl text-cyan-300 font-bold mb-3">875 ÷ 25</p>
+                        <input type="number" id="m1-op2" placeholder="Cociente" class="w-full bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 text-center">
+                        <p class="text-xs text-gray-400 mb-1">Operación 3</p>
+                        <p class="font-digital text-2xl text-cyan-300 font-bold mb-3">936 ÷ 18</p>
+                        <input type="number" id="m1-op3" placeholder="Cociente" class="w-full bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Code Reference Table -->
+                <div class="bg-gray-900/90 p-4 rounded-2xl border border-gray-800 mb-6">
+                    <p class="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider text-center">Tabla de Equivalencias de Letras</p>
+                    <div class="flex flex-wrap justify-center gap-3 text-xs sm:text-sm font-mono">
+                        <span class="bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">38 = <strong class="text-cyan-400 text-base">S</strong></span>
+                        <span class="bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">35 = <strong class="text-cyan-400 text-base">E</strong></span>
+                        <span class="bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">52 = <strong class="text-cyan-400 text-base">I</strong></span>
+                        <span class="bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">42 = <strong class="text-cyan-400 text-base">A</strong></span>
+                    </div>
+                </div>
+
+                <!-- Digit Clue Input -->
+                <div class="bg-cyan-950/40 p-4 rounded-2xl border border-cyan-500/30 mb-6 text-center">
+                    <p class="text-sm text-cyan-200 mb-2">
+                        <i class="fa-solid fa-lightbulb text-yellow-400 mr-2"></i>
+                        <strong>Pista del 1.ᵉʳ Dígito:</strong> Si unes las 3 letras formaste la palabra "S-E-I" (SEIS). ¿Qué número (0-9) indica esta palabra?
+                    </p>
+                    <div class="flex justify-center items-center space-x-3 mt-3">
+                        <label class="text-sm font-bold text-gray-300">Primer Dígito:</label>
+                        <input type="number" id="m1-digit-input" max="9" min="0" placeholder="0" class="w-16 h-12 bg-gray-900 border-2 border-cyan-400 rounded-xl text-center font-digital text-2xl text-cyan-300 font-bold focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button onclick="checkModule1()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl transition shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span>VERIFICAR MÓDULO 1</span>
+                </button>
+            </section>
+
+            <!-- SCREEN 2: MODULE 2 -->
+            <section id="screen-mod2" class="hidden glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl border border-cyan-500/20">
+                <div class="mb-6">
+                    <span class="text-xs font-bold text-cyan-400 bg-cyan-950 px-3 py-1 rounded-full border border-cyan-800">DESAFÍO 2 DE 4</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white mt-2">El Filtro de los Residuos</h2>
+                    <p class="text-gray-400 text-sm mt-1">¡Cuidado! Estas divisiones son inexactas. Encuentra el **RESTO (residuo)** de cada una.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- Op 1 -->
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 text-center">
+                        <p class="font-digital text-xl text-cyan-300 font-bold mb-1">548 ÷ 15</p>
+                        <p class="text-xs text-gray-400 mb-3">(Cociente = 36)</p>
+                        <label class="text-xs text-amber-400 block mb-1 font-semibold">Ingresa el Resto:</label>
+                        <input type="number" id="m2-r1" placeholder="Resto" class="w-full bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                    <!-- Op 2 -->
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 text-center">
+                        <p class="font-digital text-xl text-cyan-300 font-bold mb-1">739 ÷ 24</p>
+                        <p class="text-xs text-gray-400 mb-3">(Cociente = 30)</p>
+                        <label class="text-xs text-amber-400 block mb-1 font-semibold">Ingresa el Resto:</label>
+                        <input type="number" id="m2-r2" placeholder="Resto" class="w-full bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                    <!-- Op 3 -->
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 text-center">
+                        <p class="font-digital text-xl text-cyan-300 font-bold mb-1">612 ÷ 31</p>
+                        <p class="text-xs text-gray-400 mb-3">(Cociente = 19)</p>
+                        <label class="text-xs text-amber-400 block mb-1 font-semibold">Ingresa el Resto:</label>
+                        <input type="number" id="m2-r3" placeholder="Resto" class="w-full bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Final Sum & Division Clue -->
+                <div class="bg-gray-900/90 p-5 rounded-2xl border border-gray-800 mb-6 text-center space-y-3">
+                    <p class="text-sm text-gray-300">
+                        <i class="fa-solid fa-calculator text-cyan-400 mr-2"></i>
+                        <strong>Pista del 2.º Dígito:</strong> Suma los tres restos obtenidos y divide el resultado total entre <strong>25</strong>.
+                    </p>
+                    <div class="flex justify-center items-center space-x-3 pt-2">
+                        <label class="text-sm font-bold text-gray-300">Segundo Dígito del Candado:</label>
+                        <input type="number" id="m2-digit-input" max="9" min="0" placeholder="0" class="w-16 h-12 bg-gray-900 border-2 border-cyan-400 rounded-xl text-center font-digital text-2xl text-cyan-300 font-bold focus:outline-none">
+                    </div>
+                </div>
+
+                <button onclick="checkModule2()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl transition shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span>VERIFICAR MÓDULO 2</span>
+                </button>
+            </section>
+
+            <!-- SCREEN 3: MODULE 3 -->
+            <section id="screen-mod3" class="hidden glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl border border-cyan-500/20">
+                <div class="mb-6">
+                    <span class="text-xs font-bold text-cyan-400 bg-cyan-950 px-3 py-1 rounded-full border border-cyan-800">DESAFÍO 3 DE 4</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white mt-2">Problemas de Logística</h2>
+                    <p class="text-gray-400 text-sm mt-1">Resuelve los problemas razonados para encontrar la clave de acceso.</p>
+                </div>
+
+                <div class="space-y-4 mb-6">
+                    <!-- Prob A -->
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                        <div class="text-sm text-gray-300">
+                            <span class="text-cyan-400 font-bold">Problema A:</span> Un camión transporta <strong>1.440 kg</strong> de fruta en <strong>32 cajas</strong> iguales. ¿Cuántos kg pesa cada caja?
+                        </div>
+                        <input type="number" id="m3-ansA" placeholder="Resultado A" class="w-full sm:w-36 bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                    <!-- Prob B -->
+                    <div class="bg-gray-900/80 p-4 rounded-2xl border border-gray-800 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                        <div class="text-sm text-gray-300">
+                            <span class="text-cyan-400 font-bold">Problema B:</span> Un auditorio tiene <strong>864 asientos</strong> repartidos en <strong>24 filas</strong> idénticas. ¿Cuántos asientos hay por fila?
+                        </div>
+                        <input type="number" id="m3-ansB" placeholder="Resultado B" class="w-full sm:w-36 bg-gray-800 border border-gray-700 text-center py-2 rounded-xl text-white font-bold focus:border-cyan-400 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Formula Clue -->
+                <div class="bg-cyan-950/40 p-4 rounded-2xl border border-cyan-500/30 mb-6 text-center">
+                    <p class="text-sm text-cyan-200 mb-2">
+                        <i class="fa-solid fa-key text-yellow-400 mr-2"></i>
+                        <strong>Pista del 3.ᵉʳ Dígito:</strong> Resta la respuesta del Problema B a la respuesta del Problema A: <strong class="text-white">(Resultado A - Resultado B)</strong>.
+                    </p>
+                    <div class="flex justify-center items-center space-x-3 mt-3">
+                        <label class="text-sm font-bold text-gray-300">Tercer Dígito:</label>
+                        <input type="number" id="m3-digit-input" max="9" min="0" placeholder="0" class="w-16 h-12 bg-gray-900 border-2 border-cyan-400 rounded-xl text-center font-digital text-2xl text-cyan-300 font-bold focus:outline-none">
+                    </div>
+                </div>
+
+                <button onclick="checkModule3()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl transition shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span>VERIFICAR MÓDULO 3</span>
+                </button>
+            </section>
+
+            <!-- SCREEN 4: MODULE 4 -->
+            <section id="screen-mod4" class="hidden glass-panel rounded-3xl p-6 sm:p-8 shadow-2xl border border-cyan-500/20">
+                <div class="mb-6">
+                    <span class="text-xs font-bold text-cyan-400 bg-cyan-950 px-3 py-1 rounded-full border border-cyan-800">DESAFÍO 4 DE 4</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white mt-2">Prueba de Comprobación</h2>
+                    <p class="text-gray-400 text-sm mt-1">Aplica la propiedad fundamental de la división: <strong>Dividendo = (Divisor × Cociente) + Resto</strong>.</p>
+                </div>
+
+                <div class="bg-gray-900/90 p-6 rounded-2xl border border-gray-800 mb-6 text-center space-y-4">
+                    <p class="text-xs text-gray-400 uppercase tracking-widest">Ficha de Datos del Laboratorio</p>
+                    <div class="grid grid-cols-3 gap-2 max-w-md mx-auto text-center">
+                        <div class="bg-gray-800 p-3 rounded-xl border border-gray-700">
+                            <p class="text-xs text-gray-400">Divisor (d)</p>
+                            <p class="text-xl font-bold text-cyan-400 font-digital">42</p>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-xl border border-gray-700">
+                            <p class="text-xs text-gray-400">Cociente (c)</p>
+                            <p class="text-xl font-bold text-cyan-400 font-digital">18</p>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-xl border border-gray-700">
+                            <p class="text-xs text-gray-400">Resto (r)</p>
+                            <p class="text-xl font-bold text-amber-400 font-digital">7</p>
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <label class="text-sm font-semibold text-gray-300 block mb-2">Calcula el Dividendo (D) completo:</label>
+                        <input type="number" id="m4-dividend-input" placeholder="¿Dividendo?" class="w-48 bg-gray-800 border-2 border-gray-700 text-center py-2.5 rounded-xl text-white font-bold font-digital text-xl focus:border-cyan-400 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="bg-cyan-950/40 p-4 rounded-2xl border border-cyan-500/30 mb-6 text-center">
+                    <p class="text-sm text-cyan-200 mb-2">
+                        <i class="fa-solid fa-shield-halved text-yellow-400 mr-2"></i>
+                        <strong>Pista del 4.º Dígito:</strong> El último dígito del candado es la cifra de las <strong>UNIDADES</strong> del Dividendo que calculaste.
+                    </p>
+                    <div class="flex justify-center items-center space-x-3 mt-3">
+                        <label class="text-sm font-bold text-gray-300">Cuarto Dígito:</label>
+                        <input type="number" id="m4-digit-input" max="9" min="0" placeholder="0" class="w-16 h-12 bg-gray-900 border-2 border-cyan-400 rounded-xl text-center font-digital text-2xl text-cyan-300 font-bold focus:outline-none">
+                    </div>
+                </div>
+
+                <button onclick="checkModule4()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl transition shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-lock-open"></i>
+                    <span>DESBLOQUEAR CANDADO FINAL</span>
+                </button>
+            </section>
+
+            <!-- SCREEN 5: FINAL LOCK VAULT SCREEN -->
+            <section id="screen-lock" class="hidden glass-panel rounded-3xl p-6 sm:p-10 text-center max-w-lg mx-auto shadow-2xl border border-amber-500/30">
+                <div class="w-20 h-20 bg-amber-950 text-amber-400 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl border-2 border-amber-500/50 glow-amber">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-1 font-digital">CANDADO DIGITAL</h2>
+                <p class="text-gray-400 text-sm mb-6">Ingresa la combinación de 4 dígitos recabada en los módulos.</p>
+
+                <!-- 4 Digits Display -->
+                <div class="flex justify-center space-x-3 mb-6">
+                    <input type="text" id="code-1" maxlength="1" class="w-12 h-16 sm:w-14 sm:h-20 bg-gray-900 border-2 border-cyan-500 rounded-2xl text-center font-digital text-3xl text-cyan-300 font-bold focus:outline-none">
+                    <input type="text" id="code-2" maxlength="1" class="w-12 h-16 sm:w-14 sm:h-20 bg-gray-900 border-2 border-cyan-500 rounded-2xl text-center font-digital text-3xl text-cyan-300 font-bold focus:outline-none">
+                    <input type="text" id="code-3" maxlength="1" class="w-12 h-16 sm:w-14 sm:h-20 bg-gray-900 border-2 border-cyan-500 rounded-2xl text-center font-digital text-3xl text-cyan-300 font-bold focus:outline-none">
+                    <input type="text" id="code-4" maxlength="1" class="w-12 h-16 sm:w-14 sm:h-20 bg-gray-900 border-2 border-cyan-500 rounded-2xl text-center font-digital text-3xl text-cyan-300 font-bold focus:outline-none">
+                </div>
+
+                <!-- Keypad -->
+                <div class="grid grid-cols-3 gap-2 max-w-xs mx-auto mb-6">
+                    <button onclick="pressKey('1')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">1</button>
+                    <button onclick="pressKey('2')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">2</button>
+                    <button onclick="pressKey('3')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">3</button>
+                    <button onclick="pressKey('4')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">4</button>
+                    <button onclick="pressKey('5')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">5</button>
+                    <button onclick="pressKey('6')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">6</button>
+                    <button onclick="pressKey('7')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">7</button>
+                    <button onclick="pressKey('8')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">8</button>
+                    <button onclick="pressKey('9')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">9</button>
+                    <button onclick="clearKeypad()" class="py-3 bg-red-950 text-red-400 hover:bg-red-900 font-bold rounded-xl border border-red-800">C</button>
+                    <button onclick="pressKey('0')" class="py-3 bg-gray-800 hover:bg-gray-700 text-white font-digital text-xl rounded-xl font-bold border border-gray-700">0</button>
+                    <button onclick="deleteKey()" class="py-3 bg-gray-800 text-amber-400 hover:bg-gray-700 font-bold rounded-xl border border-gray-700"><i class="fa-solid fa-backspace"></i></button>
+                </div>
+
+                <button onclick="submitFinalCode()" class="w-full py-4 bg-amber-500 hover:bg-amber-400 text-gray-950 font-extrabold text-lg rounded-2xl transition shadow-lg glow-amber flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-key"></i>
+                    <span>ABRIR PUERTA PRINCIPAL</span>
+                </button>
+            </section>
+
+            <!-- SCREEN: VICTORY -->
+            <section id="screen-victory" class="hidden glass-panel rounded-3xl p-8 text-center max-w-xl mx-auto shadow-2xl border border-emerald-500/40 glow-green">
+                <div class="w-24 h-24 bg-emerald-950 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl border-2 border-emerald-500">
+                    <i class="fa-solid fa-door-open"></i>
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2 font-digital">¡HAS ESCAPADO!</h2>
+                <p class="text-emerald-400 font-semibold mb-6">Misión completada con éxito. ¡Dominas las divisiones de 2 cifras!</p>
+
+                <div class="bg-gray-900/90 rounded-2xl p-5 mb-8 text-left space-y-2 border border-gray-800 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Tiempo Restante:</span>
+                        <span id="final-time" class="font-bold text-amber-400 font-digital">--:--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Vidas Restantes:</span>
+                        <span id="final-lives" class="font-bold text-red-400">3/3</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Código Correcto:</span>
+                        <span class="font-bold text-cyan-400 font-digital">6 2 9 3</span>
+                    </div>
+                </div>
+
+                <button onclick="resetGame()" class="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold text-lg rounded-2xl transition shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>JUGAR DE NUEVO</span>
+                </button>
+            </section>
+
+            <!-- SCREEN: GAME OVER -->
+            <section id="screen-gameover" class="hidden glass-panel rounded-3xl p-8 text-center max-w-xl mx-auto shadow-2xl border border-red-500/40 glow-red">
+                <div class="w-24 h-24 bg-red-950 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl border-2 border-red-500">
+                    <i class="fa-solid fa-skull"></i>
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-2 font-digital">¡MISIÓN FALLIDA!</h2>
+                <p id="gameover-reason" class="text-red-400 font-semibold mb-6">Te has quedado sin energía en el laboratorio.</p>
+
+                <button onclick="resetGame()" class="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-bold text-lg rounded-2xl transition shadow-lg flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-arrow-rotate-left"></i>
+                    <span>REINTENTAR DESDE EL PRINCIPIO</span>
+                </button>
+            </section>
+
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="mt-6 text-center text-xs text-gray-500 py-2">
+            Escape Room Educativo • División por dos cifras • Matemática interactiva
+        </footer>
+    </div>
+
+    <!-- SCRATCHPAD / WHITEBOARD MODAL -->
+    <div id="scratchpad-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex flex-col justify-center items-center p-4">
+        <div class="bg-gray-900 border border-cyan-500/40 rounded-3xl w-full max-w-2xl p-4 flex flex-col h-[80vh] shadow-2xl">
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-800">
+                <div class="flex items-center space-x-2 text-cyan-400 font-bold">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span>Pizarra / Borrador de Cálculo</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="clearCanvas()" class="px-3 py-1 bg-red-950 hover:bg-red-900 text-red-300 rounded-lg text-xs font-semibold border border-red-800">
+                        <i class="fa-solid fa-trash mr-1"></i> Limpiar
+                    </button>
+                    <button onclick="toggleScratchpad()" class="p-2 text-gray-400 hover:text-white text-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Drawing Board -->
+            <div class="flex-grow bg-slate-950 rounded-2xl border border-gray-800 overflow-hidden relative touch-none">
+                <canvas id="scratch-canvas" class="w-full h-full cursor-crosshair"></canvas>
+            </div>
+            <p class="text-xs text-gray-500 text-center mt-2">Dibuja directamente con el ratón o el dedo para realizar tus operaciones verticales.</p>
+        </div>
+    </div>
+
+    <!-- MODAL FEEDBACK MESSAGE -->
+    <div id="feedback-modal" class="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+        <div id="feedback-card" class="bg-gray-900 border rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl transform transition-all">
+            <div id="feedback-icon" class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl"></div>
+            <h3 id="feedback-title" class="text-xl font-bold text-white mb-1"></h3>
+            <p id="feedback-msg" class="text-sm text-gray-300 mb-6"></p>
+            <button onclick="closeFeedback()" class="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-sm">
+                Continuar
+            </button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GAME ENGINE -->
+    <script>
+        // --- GAME STATE ---
+        let currentStage = 0; // 0:Intro, 1:Mod1, 2:Mod2, 3:Mod3, 4:Mod4, 5:Lock
+        let lives = 3;
+        let timerSeconds = 1800; // 30 minutes
+        let timerInterval = null;
+        let audioMuted = false;
+        let unlockedDigits = ['?', '?', '?', '?'];
+
+        // Correct Answers Matrix
+        const ANSWERS = {
+            mod1: { op1: 38, op2: 35, op3: 52, digit: 6 },
+            mod2: { r1: 8, r2: 19, r3: 23, digit: 2 },
+            mod3: { ansA: 45, ansB: 36, digit: 9 },
+            mod4: { dividend: 763, digit: 3 },
+            finalCode: "6293"
+        };
+
+        // --- AUDIO SYNTHESIS (Tone.js) ---
+        let synth, polySynth;
+
+        function initAudio() {
+            if (!synth) {
+                synth = new Tone.Synth().toDestination();
+                polySynth = new Tone.PolySynth().toDestination();
+            }
+        }
+
+        function playSound(type) {
+            if (audioMuted) return;
+            initAudio();
+            try {
+                Tone.start();
+                if (type === 'click') {
+                    synth.triggerAttackRelease("C5", "8n");
+                } else if (type === 'correct') {
+                    polySynth.triggerAttackRelease(["C5", "E5", "G5"], "8n");
+                } else if (type === 'wrong') {
+                    polySynth.triggerAttackRelease(["C3", "C#3"], "4n");
+                } else if (type === 'win') {
+                    polySynth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "2n");
+                }
+            } catch(e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
+        function toggleAudio() {
+            audioMuted = !audioMuted;
+            const icon = document.getElementById('audio-icon');
+            if (audioMuted) {
+                icon.className = "fa-solid fa-volume-xmark text-gray-500";
+            } else {
+                icon.className = "fa-solid fa-volume-high text-yellow-400";
+                playSound('click');
+            }
+        }
+
+        // --- TIMER LOGIC ---
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    triggerGameOver("¡Se ha agotado el tiempo del laboratorio!");
+                    return;
+                }
+                timerSeconds--;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = timerSeconds % 60;
+            const formatted = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('timer-display').innerText = formatted;
+        }
+
+        // --- LIVES & ERROR HANDLING ---
+        function loseLife(reason) {
+            lives--;
+            playSound('wrong');
+            
+            // Shake effect on header
+            const header = document.getElementById('game-header');
+            header.classList.add('heart-shake');
+            setTimeout(() => header.classList.remove('heart-shake'), 500);
+
+            // Update Hearts UI
+            const heartElem = document.querySelector(`.heart-${lives + 1}`);
+            if (heartElem) {
+                heartElem.className = "fa-regular fa-heart text-gray-600";
+            }
+
+            if (lives <= 0) {
+                triggerGameOver("Te has quedado sin energía (vidas).");
+            } else {
+                showFeedback(false, "Respuesta Incorrecta", `${reason} Perdiste 1 vida. Te quedan ${lives}.`);
+            }
+        }
+
+        function updateDigitUI(index, val) {
+            unlockedDigits[index] = val;
+            const box = document.getElementById(`digit-box-${index + 1}`);
+            if (box) {
+                box.innerText = val;
+                box.classList.remove('border-gray-700', 'text-gray-500');
+                box.classList.add('border-cyan-400', 'bg-cyan-950', 'text-cyan-300', 'glow-cyan');
+            }
+        }
+
+        // --- NAVIGATION BETWEEN SCREENS ---
+        function showScreen(screenId) {
+            const screens = ['screen-intro', 'screen-mod1', 'screen-mod2', 'screen-mod3', 'screen-mod4', 'screen-lock', 'screen-victory', 'screen-gameover'];
+            screens.forEach(id => {
+                const elem = document.getElementById(id);
+                if (elem) elem.classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        function startGame() {
+            playSound('click');
+            currentStage = 1;
+            lives = 3;
+            timerSeconds = 1800; // 30 min
+            unlockedDigits = ['?', '?', '?', '?'];
+
+            document.getElementById('game-header').classList.remove('hidden');
+            showScreen('screen-mod1');
+            startTimer();
+        }
+
+        // --- MODULE CHECKERS ---
+        function checkModule1() {
+            playSound('click');
+            const op1 = parseInt(document.getElementById('m1-op1').value);
+            const op2 = parseInt(document.getElementById('m1-op2').value);
+            const op3 = parseInt(document.getElementById('m1-op3').value);
+            const digit = parseInt(document.getElementById('m1-digit-input').value);
+
+            if (isNaN(op1) || isNaN(op2) || isNaN(op3) || isNaN(digit)) {
+                showFeedback(false, "Incompleto", "Por favor completa todos los campos de cálculo del Módulo 1.");
+                return;
+            }
+
+            if (op1 === ANSWERS.mod1.op1 && op2 === ANSWERS.mod1.op2 && op3 === ANSWERS.mod1.op3 && digit === ANSWERS.mod1.digit) {
+                playSound('correct');
+                updateDigitUI(0, ANSWERS.mod1.digit);
+                showFeedback(true, "¡Módulo 1 Superado!", "Excelente decodificación. Has obtenido el 1.ᵉʳ dígito: [ 6 ]", () => {
+                    currentStage = 2;
+                    document.getElementById('stage-indicator').innerText = "Módulo 2: Residuos";
+                    showScreen('screen-mod2');
+                });
+            } else {
+                loseLife("Hay un error en tus cocientes o en el primer dígito.");
+            }
+        }
+
+        function checkModule2() {
+            playSound('click');
+            const r1 = parseInt(document.getElementById('m2-r1').value);
+            const r2 = parseInt(document.getElementById('m2-r2').value);
+            const r3 = parseInt(document.getElementById('m2-r3').value);
+            const digit = parseInt(document.getElementById('m2-digit-input').value);
+
+            if (isNaN(r1) || isNaN(r2) || isNaN(r3) || isNaN(digit)) {
+                showFeedback(false, "Incompleto", "Por favor ingresa los 3 restos y el segundo dígito.");
+                return;
+            }
+
+            if (r1 === ANSWERS.mod2.r1 && r2 === ANSWERS.mod2.r2 && r3 === ANSWERS.mod2.r3 && digit === ANSWERS.mod2.digit) {
+                playSound('correct');
+                updateDigitUI(1, ANSWERS.mod2.digit);
+                showFeedback(true, "¡Módulo 2 Superado!", "Suma de restos correcta. Has obtenido el 2.º dígito: [ 2 ]", () => {
+                    currentStage = 3;
+                    document.getElementById('stage-indicator').innerText = "Módulo 3: Logística";
+                    showScreen('screen-mod3');
+                });
+            } else {
+                loseLife("Revisa el resto de cada división o la división final entre 25.");
+            }
+        }
+
+        function checkModule3() {
+            playSound('click');
+            const ansA = parseInt(document.getElementById('m3-ansA').value);
+            const ansB = parseInt(document.getElementById('m3-ansB').value);
+            const digit = parseInt(document.getElementById('m3-digit-input').value);
+
+            if (isNaN(ansA) || isNaN(ansB) || isNaN(digit)) {
+                showFeedback(false, "Incompleto", "Resuelve ambos problemas de palabras e ingresa el dígito.");
+                return;
+            }
+
+            if (ansA === ANSWERS.mod3.ansA && ansB === ANSWERS.mod3.ansB && digit === ANSWERS.mod3.digit) {
+                playSound('correct');
+                updateDigitUI(2, ANSWERS.mod3.digit);
+                showFeedback(true, "¡Módulo 3 Superado!", "Logística calculada a la perfección. Has obtenido el 3.ᵉʳ dígito: [ 9 ]", () => {
+                    currentStage = 4;
+                    document.getElementById('stage-indicator').innerText = "Módulo 4: Prueba Inversa";
+                    showScreen('screen-mod4');
+                });
+            } else {
+                loseLife("Revisa tus problemas de división o la resta A - B.");
+            }
+        }
+
+        function checkModule4() {
+            playSound('click');
+            const dividend = parseInt(document.getElementById('m4-dividend-input').value);
+            const digit = parseInt(document.getElementById('m4-digit-input').value);
+
+            if (isNaN(dividend) || isNaN(digit)) {
+                showFeedback(false, "Incompleto", "Calcula el dividendo e ingresa su cifra de unidades.");
+                return;
+            }
+
+            if (dividend === ANSWERS.mod4.dividend && digit === ANSWERS.mod4.digit) {
+                playSound('correct');
+                updateDigitUI(3, ANSWERS.mod4.digit);
+                showFeedback(true, "¡Todos los Módulos Resueltos!", "Has hallado el 4.º dígito: [ 3 ]. ¡Dirígete al candado digital!", () => {
+                    currentStage = 5;
+                    document.getElementById('stage-indicator').innerText = "Candado Final";
+                    showScreen('screen-lock');
+                });
+            } else {
+                loseLife("Revisa la fórmula: Dividendo = (Divisor × Cociente) + Resto.");
+            }
+        }
+
+        // --- KEYPAD & FINAL LOCK ---
+        let enteredCode = [];
+
+        function pressKey(num) {
+            playSound('click');
+            if (enteredCode.length < 4) {
+                enteredCode.push(num);
+                updateCodeInputs();
+            }
+        }
+
+        function deleteKey() {
+            playSound('click');
+            enteredCode.pop();
+            updateCodeInputs();
+        }
+
+        function clearKeypad() {
+            playSound('click');
+            enteredCode = [];
+            updateCodeInputs();
+        }
+
+        function updateCodeInputs() {
+            for (let i = 1; i <= 4; i++) {
+                const el = document.getElementById(`code-${i}`);
+                el.value = enteredCode[i - 1] || '';
+            }
+        }
+
+        function submitFinalCode() {
+            playSound('click');
+            const codeStr = enteredCode.join('');
+            if (codeStr === ANSWERS.finalCode) {
+                clearInterval(timerInterval);
+                playSound('win');
+                document.getElementById('final-time').innerText = document.getElementById('timer-display').innerText;
+                document.getElementById('final-lives').innerText = `${lives}/3`;
+                showScreen('screen-victory');
+            } else {
+                loseLife("El código ingresado no coincide con el candado principal.");
+                clearKeypad();
+            }
+        }
+
+        function triggerGameOver(reason) {
+            clearInterval(timerInterval);
+            playSound('wrong');
+            document.getElementById('gameover-reason').innerText = reason;
+            showScreen('screen-gameover');
+        }
+
+        function resetGame() {
+            location.reload();
+        }
+
+        // --- FEEDBACK MODAL LOGIC ---
+        let feedbackCallback = null;
+
+        function showFeedback(isSuccess, title, msg, callback = null) {
+            const modal = document.getElementById('feedback-modal');
+            const card = document.getElementById('feedback-card');
+            const icon = document.getElementById('feedback-icon');
+
+            document.getElementById('feedback-title').innerText = title;
+            document.getElementById('feedback-msg').innerText = msg;
+            feedbackCallback = callback;
+
+            if (isSuccess) {
+                card.className = "bg-gray-900 border border-emerald-500/50 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl";
+                icon.className = "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl bg-emerald-950 text-emerald-400 border border-emerald-500";
+                icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+            } else {
+                card.className = "bg-gray-900 border border-red-500/50 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl";
+                icon.className = "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl bg-red-950 text-red-400 border border-red-500";
+                icon.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeFeedback() {
+            document.getElementById('feedback-modal').classList.add('hidden');
+            if (feedbackCallback) {
+                feedbackCallback();
+                feedbackCallback = null;
+            }
+        }
+
+        // --- DIGITAL SCRATCHPAD (CANVAS) ---
+        let canvas, ctx;
+        let isDrawing = false;
+
+        function initScratchpad() {
+            canvas = document.getElementById('scratch-canvas');
+            ctx = canvas.getContext('2d');
+
+            function resizeCanvas() {
+                const parent = canvas.parentElement;
+                canvas.width = parent.clientWidth;
+                canvas.height = parent.clientHeight;
+                ctx.strokeStyle = '#38bdf8'; // Cyan color
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+            }
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Mouse Events
+            canvas.addEventListener('mousedown', (e) => {
+                isDrawing = true;
+                ctx.beginPath();
+                const rect = canvas.getBoundingClientRect();
+                ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDrawing) return;
+                const rect = canvas.getBoundingClientRect();
+                ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                ctx.stroke();
+            });
+
+            window.addEventListener('mouseup', () => isDrawing = false);
+
+            // Touch Events for Mobile
+            canvas.addEventListener('touchstart', (e) => {
+                isDrawing = true;
+                ctx.beginPath();
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                e.preventDefault();
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (!isDrawing) return;
+                const rect = canvas.getBoundingClientRect();
+                const touch = e.touches[0];
+                ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                ctx.stroke();
+                e.preventDefault();
+            });
+
+            canvas.addEventListener('touchend', () => isDrawing = false);
+        }
+
+        function toggleScratchpad() {
+            playSound('click');
+            const modal = document.getElementById('scratchpad-modal');
+            const isHidden = modal.classList.contains('hidden');
+            if (isHidden) {
+                modal.classList.remove('hidden');
+                setTimeout(initScratchpad, 50);
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function clearCanvas() {
+            playSound('click');
+            if (ctx && canvas) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+    </script>
+</body>
+</html>
